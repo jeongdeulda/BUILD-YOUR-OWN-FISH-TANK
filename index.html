@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BUILD MY OWN FISH TANK!</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Pretendard', sans-serif;
+      font-weight: bold;
+      overflow: hidden;
+    }
+
+    #header {
+      text-align: left;
+      color: black;
+      padding-left: 10px;
+      font-size: 65px;
+      position: fixed;
+      top: 0;
+      width: 100%;
+      z-index: 100;
+      background: transparent;
+    }
+
+    #toolbar {
+      position: fixed;
+      top: 67px;
+      left: 3px;
+      z-index: 10;
+      padding: 10px;
+      border-radius: 5px;
+      display: flex;
+      gap: 10px;
+    }
+
+    #canvas {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      overflow: hidden;
+      margin-top: 65px;
+      background: url('Sand.png') center/cover no-repeat;
+    }
+
+    #stickerContainer {
+      display: flex;
+      flex-direction: row;
+      position: fixed;
+      left: 15px;
+      top: 117px;
+      gap: 20px;
+    }
+
+    .sticker {
+      width: 50px;
+      transition: width 0.2s ease, height 0.2s ease;
+      cursor: pointer;
+    }
+
+    .movingFish {
+      position: absolute;
+      transition: transform 0.3s ease;
+      transform-origin: center;
+    }
+
+    #sizeSlider {
+      width: 150px;
+    }
+
+    .color-btn {
+      margin-top: 2px;
+      width: 20px;
+      height: 20px;
+      border-radius: 10%;
+      border: none;
+      cursor: pointer;
+    }
+
+    .black-btn { background-color: #8be4ff; }
+    .blue-btn { background-color: #5fb5ff; }
+    .green-btn { background-color: #171c3f; }
+
+    /* Start Screen */
+    #startScreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      margin-top: 9px;
+      background: url('Sand0000.png') center/cover no-repeat;
+      display: flex;
+      align-items: flex-start;
+      flex-direction: row;
+      gap: 20px;
+      z-index: 200;
+    }
+
+    #startScreen h1 {
+      font-size: 100px;
+      margin-top: -15px;
+      margin-left: 10px;
+      margin-bottom: 20px;
+      opacity: 0;
+      animation: slideIn 1s forwards; 
+    }
+
+    #startScreen button {
+      font-size: 70px;
+      padding: 10px 20px;
+      margin-top: -2px;
+      cursor: pointer;
+      border: none;
+      background: none;
+      opacity: 0;
+      animation: slideIn 1s forwards; 
+      animation-delay: 0.7s; 
+
+    }
+
+    @keyframes slideIn {
+    0% {
+        transform: translateY(30px); /* 시작 위치 */
+        opacity: 0; /* 시작 시 투명도 */
+    }
+    100% {
+        transform: translateY(0); /* 최종 위치 */
+        opacity: 1; /* 최종 투명도 */
+    }
+}
+
+.animate {
+    animation: slideIn 0.5s ease forwards; /* 애니메이션 적용 */
+}
+
+
+  </style>
+</head>
+<body>
+  <div id="header">BUILD YOUR OWN FISH TANK!</div>
+
+  <!-- Start Screen -->
+  <div id="startScreen">
+    <h1>BUILD YOUR OWN FISH TANK → </h1>
+    <button onclick="startGame()">START</button>
+  </div>
+
+  <!-- toolbar -->
+  <div id="toolbar" style="display: none;">
+    <div style="margin-top: 3px;">Background color</div>
+    <button class="color-btn black-btn" data-color="#8be4ff"></button>
+    <button class="color-btn blue-btn" data-color="#5fb5ff"></button>
+    <button class="color-btn green-btn" data-color="#171c3f"></button>
+    <label for="sizeSlider" style="margin-top: 3px;">Sticker size</label>
+    <input type="range" id="sizeSlider" min="50" max="500" value="300">
+    <button id="removeBtn">Remove All Sticker</button> 
+  </div>
+
+  <!-- canvas -->
+  <div id="canvas" style="display: none;">
+    <div id="stickerContainer">
+      <img src="Rock1.png" class="sticker">
+      <img src="Rock2.png" class="sticker">
+      <img src="Rock3.png" class="sticker">
+      <img src="Plant1.png" class="sticker">
+      <img src="Plant2.png" class="sticker">
+      <img src="Plant3.png" class="sticker">
+      <img src="Star.png" class="sticker">
+      <img src="Bubble.png" class="sticker">
+      <img src="Fish1.png" class="sticker fish" data-direction="left">
+      <img src="Fish2.png" class="sticker fish" data-direction="left">
+      <img src="Fish3.png" class="sticker fish" data-direction="left">
+      <img src="Fish4.png" class="sticker fish" data-direction="right">
+      <img src="Fish5.png" class="sticker fish" data-direction="right">
+    </div>
+  </div>
+
+  <audio id="backgroundAudio" loop src="tank.mp3"></audio>
+  <audio id="fillAudio" src="fill.mp3"></audio>
+  <audio id="swimAudio" src="swim.mp3" loop></audio>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const sizeSlider = document.getElementById('sizeSlider');
+    const removeBtn = document.getElementById('removeBtn');
+    const toolbar = document.getElementById('toolbar');
+    const backgroundAudio = document.getElementById('backgroundAudio');
+    const fillAudio = document.getElementById('fillAudio');
+    const swimAudio = document.getElementById('swimAudio');
+    let currentSize = sizeSlider.value;
+    let selectedSticker = null;
+    let animations = new Map();
+
+    function startGame() {
+      document.getElementById('startScreen').style.display = 'none';
+      toolbar.style.display = 'flex';
+      canvas.style.display = 'block';
+      backgroundAudio.play();
+      backgroundAudio.volume = 0.1;
+
+    
+    const header = document.getElementById('header');
+    const startButton = document.querySelector('#startScreen button');
+    
+    header.classList.add('animate');
+    startButton.classList.add('animate');
+      
+    }
+
+    document.querySelectorAll('.color-btn').forEach(button => {
+        button.addEventListener('click', () => {
+            const color = button.getAttribute('data-color');
+            canvas.style.backgroundColor = color;
+            fillAudio.volume = 0.5; 
+            fillAudio.play();
+
+            const header = document.getElementById('header');
+            const startButton = document.querySelector('#startScreen button');
+      
+      header.classList.add('animate');
+      startButton.classList.add('animate');
+        });
+    });
+
+    sizeSlider.addEventListener('input', (event) => {
+        currentSize = event.target.value;
+        if (selectedSticker) {
+            selectedSticker.style.width = currentSize + 'px';
+        }
+    });
+
+    function animateFish(fish, direction) {
+        const step = 2;
+        let movingRight = direction === 'right';
+        const isSpecialFish = fish.classList.contains('fish') && (fish.src.includes('Fish1.png') || fish.src.includes('Fish2.png') || fish.src.includes('Fish3.png'));
+
+        function move() {
+            const rect = fish.getBoundingClientRect();
+            const canvasRect = canvas.getBoundingClientRect();
+            const offset = 800; 
+
+            if (isSpecialFish) {
+                if (movingRight) {
+                    if (rect.left < canvasRect.right + offset) {
+                        fish.style.left = rect.left + step + 'px';
+                    } else {
+                        movingRight = false;
+                        fish.style.transform = 'rotateY(0deg)';
+                        fish.style.left = canvasRect.right + offset + 'px'; 
+                    }
+                } else {
+                    if (rect.right > canvasRect.left - offset) {
+                        fish.style.left = rect.left - step + 'px';
+                    } else {
+                        movingRight = true;
+                        fish.style.transform = 'rotateY(180deg)';
+                        setTimeout(() => { fish.style.left = canvasRect.left - offset + 'px'; }, 100);
+                    }
+                }
+            } else {
+                if (movingRight) {
+                    if (rect.left < canvasRect.right + offset) {
+                        fish.style.left = rect.left + step + 'px';
+                    } else {
+                        movingRight = false;
+                        fish.style.transform = 'rotateY(180deg)';
+                        fish.style.left = canvasRect.right + offset + 'px'; 
+                    }
+                } else {
+                    if (rect.right > canvasRect.left - offset) {
+                        fish.style.left = rect.left - step + 'px';
+                    } else {
+                        movingRight = true;
+                        fish.style.transform = 'rotateY(0deg)';
+                        setTimeout(() => { fish.style.left = canvasRect.left - offset + 'px'; }, 100);
+                    }
+                }
+            }
+        }
+
+        const intervalId = setInterval(move, 20);
+        animations.set(fish, intervalId);
+    }
+
+    function stopAnimation(fish) {
+        if (animations.has(fish)) {
+            clearInterval(animations.get(fish));
+            animations.delete(fish);
+        }
+    }
+
+    // Fish click and drag event
+    const stickers = document.querySelectorAll('.sticker');
+    stickers.forEach(sticker => {
+        sticker.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            
+            // Check if it's a fish to start animation after dropping
+            if (sticker.classList.contains('fish')) {
+                const direction = sticker.getAttribute('data-direction');
+                selectedSticker = sticker.cloneNode(true);
+                selectedSticker.classList.add('movingFish');
+                selectedSticker.style.width = currentSize + 'px';
+                selectedSticker.style.left = e.pageX - currentSize / 2 + 'px';
+                selectedSticker.style.top = e.pageY - currentSize / 2 + 'px';
+                canvas.appendChild(selectedSticker);
+
+                let shiftX = e.clientX - selectedSticker.getBoundingClientRect().left;
+                let shiftY = e.clientY - selectedSticker.getBoundingClientRect().top;
+                stopAnimation(selectedSticker); // Stop any existing animation
+
+                function moveAt(pageX, pageY) {
+                    selectedSticker.style.left = pageX - shiftX + 'px';
+                    selectedSticker.style.top = pageY - shiftY + 'px';
+                }
+
+                function onMouseMove(e) {
+                    moveAt(e.pageX, e.pageY);
+                }
+
+                document.addEventListener('mousemove', onMouseMove);
+
+                selectedSticker.addEventListener('mouseup', () => {
+                    document.removeEventListener('mousemove', onMouseMove);
+                    animateFish(selectedSticker, direction); 
+                    swimAudio.play();
+                    // Start animation after dropping
+                }, { once: true });
+            } else {
+                // For non-fish stickers
+                selectedSticker = sticker.cloneNode(true);  
+                selectedSticker.style.position = 'absolute';
+                selectedSticker.style.width = currentSize + 'px'; 
+                selectedSticker.style.left = e.pageX - currentSize / 2 + 'px';
+                selectedSticker.style.top = e.pageY - currentSize / 2 + 'px';
+                canvas.appendChild(selectedSticker);
+
+                let shiftX = e.clientX - selectedSticker.getBoundingClientRect().left;
+                let shiftY = e.clientY - selectedSticker.getBoundingClientRect().top;
+
+                function moveAt(pageX, pageY) {
+                    selectedSticker.style.left = pageX - shiftX + 'px';
+                    selectedSticker.style.top = pageY - shiftY + 'px';
+                }
+
+                function onMouseMove(e) {
+                    moveAt(e.pageX, e.pageY);
+                }
+
+                document.addEventListener('mousemove', onMouseMove);
+
+                selectedSticker.addEventListener('mouseup', () => {
+                    document.removeEventListener('mousemove', onMouseMove);
+                }, { once: true });
+            }
+        });
+    });
+
+    // Sticker remove button
+removeBtn.addEventListener('click', () => {
+    const allStickers = canvas.querySelectorAll('.movingFish');
+    allStickers.forEach(sticker => {
+        stopAnimation(sticker);
+        canvas.removeChild(sticker);
+    });
+    swimAudio.volume = 0.01;
+    swimAudio.pause(); 
+
+});
+
+</script>
+</body>
+</html>
